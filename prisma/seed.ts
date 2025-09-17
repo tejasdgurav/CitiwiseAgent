@@ -3,6 +3,12 @@ import { PrismaClient, UserRole, LeadSource, LeadStatus, UnitStatus } from '@pri
 const prisma = new PrismaClient()
 
 async function main() {
+  // If already seeded (a project exists), exit early to make seeding idempotent
+  const existing = await prisma.project.findFirst()
+  if (existing) {
+    console.log('Seed skipped: project already exists (idempotent).')
+    return
+  }
   // Create organization
   const org = await prisma.organization.create({
     data: {
