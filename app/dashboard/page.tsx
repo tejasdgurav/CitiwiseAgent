@@ -24,20 +24,21 @@ export default async function DashboardPage() {
   } catch (e) {
     // swallow and render setup screen
   }
-
+  // Fallback to stub project in dev/no-DB mode so dashboard keeps working without login/DB
+  let isStub = false
   if (!project) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-semibold text-gray-900 mb-4">No Projects Found</h1>
-          <p className="text-gray-600 mb-6">Create your first project to get started with CitiWise.</p>
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Create Project
-          </Button>
-        </div>
-      </div>
-    )
+    isStub = true
+    project = {
+      id: 'stub-project',
+      name: 'Demo Project',
+      city: 'Mumbai',
+      cashTargets: [
+        {
+          targetAmount: 5_00_00_000, // ₹5 Cr
+          targetDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        },
+      ],
+    }
   }
 
   const cashTarget = project.cashTargets[0]
@@ -137,6 +138,9 @@ export default async function DashboardPage() {
             <div>
               <h1 className="text-2xl font-semibold text-gray-900">{project.name}</h1>
               <p className="text-sm text-gray-600">{project.city} • Dashboard</p>
+              {isStub && (
+                <p className="text-xs text-orange-600 mt-1">Demo mode: showing stub data (no DB/login required)</p>
+              )}
             </div>
             <div className="flex items-center gap-3">
               <Button variant="outline" size="sm">
