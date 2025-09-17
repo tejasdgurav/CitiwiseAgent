@@ -7,8 +7,6 @@ export const fetchCache = 'force-no-store'
 import { useState } from 'react'
 import { signIn } from 'next-auth/react'
 import { useSearchParams } from 'next/navigation'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -21,55 +19,36 @@ export default function LoginPage() {
     e.preventDefault()
     setLoading(true)
     try {
-      const res = await signIn('credentials', {
-        email,
-        password,
-        redirect: true,
-        callbackUrl,
-      })
-      return res
+      await signIn('credentials', { email, password, redirect: true, callbackUrl })
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle className="text-lg">Sign in to CitiWise</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                required
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Signing in...' : 'Sign In'}
-            </Button>
-            <div className="text-xs text-gray-500 mt-2">
-              Demo login uses credentials in your environment: DEMO_LOGIN_EMAIL and DEMO_LOGIN_PASSWORD
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+    <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',background:'#f9fafb',padding:16}}>
+      <div style={{width:360,background:'white',padding:24,borderRadius:12,boxShadow:'0 2px 12px rgba(0,0,0,0.08)'}}>
+        <h1 style={{fontSize:18,fontWeight:600,marginBottom:16}}>Sign in to CitiWise</h1>
+        <form onSubmit={handleSubmit}>
+          <div style={{marginBottom:12}}>
+            <label style={{display:'block',fontSize:12,fontWeight:600,marginBottom:6}}>Email</label>
+            <input type="email" value={email} onChange={e=>setEmail(e.target.value)} required
+              style={{width:'100%',padding:'8px 12px',border:'1px solid #d1d5db',borderRadius:8}} />
+          </div>
+          <div style={{marginBottom:16}}>
+            <label style={{display:'block',fontSize:12,fontWeight:600,marginBottom:6}}>Password</label>
+            <input type="password" value={password} onChange={e=>setPassword(e.target.value)} required
+              style={{width:'100%',padding:'8px 12px',border:'1px solid #d1d5db',borderRadius:8}} />
+          </div>
+          <button type="submit" disabled={loading}
+            style={{width:'100%',padding:'10px 12px',borderRadius:8,background:'#2563eb',color:'white',border:'none'}}>
+            {loading ? 'Signing in...' : 'Sign In'}
+          </button>
+          <div style={{fontSize:12,color:'#6b7280',marginTop:8}}>
+            Demo creds env are optional; in open demo mode any email/password will work.
+          </div>
+        </form>
+      </div>
     </div>
   )
 }
