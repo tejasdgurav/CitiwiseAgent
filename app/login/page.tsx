@@ -6,14 +6,12 @@ export const fetchCache = 'force-no-store'
 
 import { useState } from 'react'
 import { signIn } from 'next-auth/react'
-import { useSearchParams } from 'next/navigation'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const params = useSearchParams()
-  const callbackUrl = params.get('callbackUrl') || '/dashboard'
+  const callbackUrl = '/dashboard'
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
