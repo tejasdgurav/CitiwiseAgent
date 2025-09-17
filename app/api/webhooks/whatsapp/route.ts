@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { logger } from '@/lib/logging'
 import { prisma } from '@/lib/db'
-import { WhatsAppWebhookPayload } from '@/lib/adapters/whatsapp/stub'
 import { rateLimit } from '@/lib/rateLimit'
+import { getWhatsAppAdapter } from '@/lib/adapters/whatsapp'
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,12 +13,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Too Many Requests' }, { status: 429 })
     }
 
-    const payload: WhatsAppWebhookPayload = await request.json()
-    
-    logger.info('WhatsApp webhook received', { payload })
+    const adapter = getWhatsAppAdapter()
+    const normalized = await adapter.normalizeWebhook(request)
+    if (!normalized) {
+      return NextResponse.json({ error: 'Invalid webhook payload' }, { status: 400 })
+    }
+    logger.info('WhatsApp webhook received (normalized)', { normalized })
 
     // Process incoming message
-    await processIncomingMessage(payload)
+    await processIncomingMessage(normalized)
 
     return NextResponse.json({ status: 'success' })
   } catch (error) {
@@ -30,7 +33,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function processIncomingMessage(payload: WhatsAppWebhookPayload) {
+async function processIncomingMessage(payload: { from: string; message: string; timestamp: string }) {
   const { from, message, timestamp } = payload
 
   // Find or create contact

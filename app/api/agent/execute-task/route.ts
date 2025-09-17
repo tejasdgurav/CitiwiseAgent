@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { logger } from '@/lib/logging'
-import { WhatsAppStubAdapter } from '@/lib/adapters/whatsapp/stub'
+import { getWhatsAppAdapter } from '@/lib/adapters/whatsapp'
 
 const openAccess = process.env.OPEN_ACCESS === 'true' || process.env.OPEN_ACCESS === '1'
 
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
         if (!lead || !lead.contact?.phone) {
           return NextResponse.json({ error: 'Lead/contact not found or missing phone' }, { status: 404 })
         }
-        const wa = new WhatsAppStubAdapter(process.env.NEXTAUTH_URL || 'http://localhost:3000')
+        const wa = getWhatsAppAdapter()
         const res = await wa.sendTemplate({
           to: lead.contact.phone,
           templateName,
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: 'Lead/contact not found or missing phone' }, { status: 404 })
         }
         const url = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/deal/${linkCode}`
-        const wa = new WhatsAppStubAdapter(process.env.NEXTAUTH_URL || 'http://localhost:3000')
+        const wa = getWhatsAppAdapter()
         const res = await wa.sendMessage(
           lead.contact.phone,
           `Hi! Your personalized deal is ready: ${url}`

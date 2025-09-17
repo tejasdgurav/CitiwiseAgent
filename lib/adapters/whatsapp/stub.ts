@@ -1,11 +1,5 @@
 import { logger } from '@/lib/logging'
-
-export interface WhatsAppMessage {
-  to: string
-  templateName: string
-  templateParams?: Record<string, string>
-  body?: string
-}
+import type { WhatsAppAdapter, WhatsAppMessage, WhatsAppWebhookNormalized } from './types'
 
 export interface WhatsAppWebhookPayload {
   from: string
@@ -15,7 +9,7 @@ export interface WhatsAppWebhookPayload {
   messageId: string
 }
 
-export class WhatsAppStubAdapter {
+export class WhatsAppStubAdapter implements WhatsAppAdapter {
   private baseUrl: string
 
   constructor(baseUrl: string = 'http://localhost:3000') {
@@ -24,43 +18,37 @@ export class WhatsAppStubAdapter {
 
   async sendTemplate(message: WhatsAppMessage): Promise<{ messageId: string; status: string }> {
     logger.info('WhatsApp Stub: Sending template message', { message })
-    
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 100))
-    
+    await new Promise((resolve) => setTimeout(resolve, 100))
     const messageId = `wa_${Date.now()}_${Math.random().toString(36).substring(7)}`
-    
-    // In stub mode, we just log the message
     logger.info('WhatsApp Template Sent', {
       messageId,
       to: message.to,
       template: message.templateName,
       params: message.templateParams,
     })
-
-    return {
-      messageId,
-      status: 'sent',
-    }
+    return { messageId, status: 'sent' }
   }
 
   async sendMessage(to: string, body: string): Promise<{ messageId: string; status: string }> {
     logger.info('WhatsApp Stub: Sending message', { to, body })
-    
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 100))
-    
+    await new Promise((resolve) => setTimeout(resolve, 100))
     const messageId = `wa_${Date.now()}_${Math.random().toString(36).substring(7)}`
-    
-    logger.info('WhatsApp Message Sent', {
-      messageId,
-      to,
-      body,
-    })
+    logger.info('WhatsApp Message Sent', { messageId, to, body })
+    return { messageId, status: 'sent' }
+  }
 
-    return {
-      messageId,
-      status: 'sent',
+  async normalizeWebhook(request: Request): Promise<WhatsAppWebhookNormalized | null> {
+    try {
+      const payload = (await request.json()) as WhatsAppWebhookPayload
+      return {
+        from: payload.from,
+        message: payload.message,
+        timestamp: payload.timestamp,
+        raw: payload,
+      }
+    } catch (e) {
+      logger.error('WhatsApp Stub: Failed to normalize webhook', { error: e })
+      return null
     }
   }
 
