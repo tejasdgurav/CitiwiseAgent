@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db'
 import { logger } from '@/lib/logging'
 import { RiskLevel, TaskStatus } from '@prisma/client'
+import { evaluateTaskAgainstPolicy } from '@/lib/policy'
 
 export interface TaskInput {
   agentType: string
@@ -205,20 +206,30 @@ export class TaskPlanner {
   }
 
   async createTask(taskInput: TaskInput): Promise<string> {
+    // Evaluate task against policy to determine actual risk and approval requirement
+    const policyEval = evaluateTaskAgainstPolicy({
+      agentType: taskInput.agentType,
+      actionType: taskInput.actionType,
+      payload: taskInput.payload,
+      cashImpactDelta: taskInput.cashImpactDelta,
+    })
+
+    const finalRisk: RiskLevel = policyEval.riskLevel
+
     const task = await prisma.task.create({
       data: {
         agentType: taskInput.agentType,
         actionType: taskInput.actionType,
         payload: taskInput.payload,
-        riskLevel: taskInput.riskLevel,
+        riskLevel: finalRisk,
         cashImpactDelta: taskInput.cashImpactDelta,
         reasonShort: taskInput.reasonShort,
-        status: taskInput.riskLevel === 'LOW' ? 'PENDING' : 'PENDING', // All tasks start as pending
+        status: 'PENDING',
       }
     })
 
-    // Create approval if medium or high risk
-    if (taskInput.riskLevel === 'MEDIUM' || taskInput.riskLevel === 'HIGH') {
+    // Create approval if policy requires or if medium/high risk
+    if (policyEval.requiresApproval || finalRisk === 'MEDIUM' || finalRisk === 'HIGH') {
       // Find an appropriate approver (for now, get any OWNER or PROJECT_ADMIN)
       const approver = await prisma.user.findFirst({
         where: {
@@ -241,7 +252,8 @@ export class TaskPlanner {
       taskId: task.id, 
       agentType: taskInput.agentType, 
       actionType: taskInput.actionType,
-      riskLevel: taskInput.riskLevel 
+      riskLevel: finalRisk,
+      policyViolations: policyEval.violations,
     })
 
     return task.id

@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { logger } from '@/lib/logging'
 import { z } from 'zod'
-// Auth bypass for development: remove next-auth dependency
-// import { getServerSession } from 'next-auth'
-// import { authOptions } from '@/lib/auth'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+
+const openAccess = process.env.OPEN_ACCESS === 'true' || process.env.OPEN_ACCESS === '1'
 
 const createDealPageSchema = z.object({
   leadId: z.string(),
@@ -16,8 +17,18 @@ export async function POST(request: NextRequest) {
   const correlationId = crypto.randomUUID()
 
   try {
-    // Bypass auth/role checks: grant open access in dev
-    const role = 'OWNER'
+    // Conditionally enforce auth/role checks
+    if (!openAccess) {
+      const session = await getServerSession(authOptions as any)
+      const role = (session as any)?.role || (session as any)?.user?.role
+      if (!session || !role) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
+      const allowed: string[] = ['OWNER', 'PROJECT_ADMIN', 'SALES_LEAD', 'SALES_AGENT']
+      if (!allowed.includes(role)) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
+    }
 
     const body = await request.json()
     const { leadId, unitIds, expiryDays } = createDealPageSchema.parse(body)
@@ -176,7 +187,37 @@ export async function POST(request: NextRequest) {
       dealUrl,
     })
   } catch (error) {
-    logger.error('Error creating deal page, returning stubbed deal', {
+    if (openAccess) {
+      logger.error('Error creating deal page, returning stubbed deal (open access)', {
+        correlationId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      })
+
+      if (error instanceof z.ZodError) {
+        return NextResponse.json(
+          { error: 'Invalid request data', details: error.errors },
+          { status: 400 }
+        )
+      }
+
+      // Stub fallback for dev/demo without DB/auth
+      const linkCode = `DEAL-${Date.now().toString(36).toUpperCase()}-STUB`
+      const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
+      const dealUrl = `${baseUrl}/deal/${linkCode}`
+      return NextResponse.json({
+        success: true,
+        dealPage: {
+          id: 'stub-deal-id',
+          linkCode,
+          expiresAt: new Date(Date.now() + 7 * 86400000).toISOString(),
+        },
+        dealCode: linkCode,
+        dealUrl,
+        stub: true,
+      })
+    }
+
+    logger.error('Error creating deal page', {
       correlationId,
       error: error instanceof Error ? error.message : 'Unknown error',
     })
@@ -188,20 +229,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Stub fallback for dev/demo without DB/auth
-    const linkCode = `DEAL-${Date.now().toString(36).toUpperCase()}-STUB`
-    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
-    const dealUrl = `${baseUrl}/deal/${linkCode}`
-    return NextResponse.json({
-      success: true,
-      dealPage: {
-        id: 'stub-deal-id',
-        linkCode,
-        expiresAt: new Date(Date.now() + 7 * 86400000).toISOString(),
-      },
-      dealCode: linkCode,
-      dealUrl,
-      stub: true,
-    })
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
