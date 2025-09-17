@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { Navigation } from "@/components/layout/Navigation";
+// import { Navigation } from "@/components/layout/Navigation";
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -26,7 +26,7 @@ export default function RootLayout({
     <html lang="en" className="h-full">
       <body className={`${inter.variable} font-sans antialiased h-full bg-gray-50`}>
         <div className="min-h-full">
-          <Navigation />
+          {/* Navigation temporarily disabled for prod blank-screen diagnosis */}
           <main>{children}</main>
         </div>
       </body>
