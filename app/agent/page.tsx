@@ -10,36 +10,30 @@ import { RunPlannerButton } from '@/components/common/RunPlannerButton'
 
 export default async function AgentConsolePage() {
   // Get recent leads and stats, available units, and first project (for planner)
-  const [recentLeads, leadStats, todayTasks, availableUnits, project] = await Promise.all([
-    prisma.lead.findMany({
-      include: {
-        contact: true,
-        project: true,
-      },
-      orderBy: { updatedAt: 'desc' },
-      take: 10,
-    }),
-    prisma.lead.groupBy({
-      by: ['status'],
-      _count: {
-        status: true,
-      },
-    }),
-    prisma.task.count({
-      where: {
-        createdAt: {
-          gte: new Date(new Date().setHours(0, 0, 0, 0))
+  let recentLeads: any[] = []
+  let leadStats: any[] = []
+  let todayTasks = 0
+  let availableUnits: any[] = []
+  let project: any = null
+
+  try {
+    [recentLeads, leadStats, todayTasks, availableUnits, project] = await Promise.all([
+      prisma.lead.findMany({
+        include: { contact: true, project: true },
+        orderBy: { updatedAt: 'desc' },
+        take: 10,
+      }),
+      prisma.lead.groupBy({ by: ['status'], _count: { status: true } }),
+      prisma.task.count({
+        where: {
+          createdAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
+          status: { in: ['PENDING', 'IN_PROGRESS'] },
         },
-        status: { in: ['PENDING', 'IN_PROGRESS'] }
-      }
-    }),
-    prisma.unit.findMany({
-      where: { status: 'AVAILABLE' },
-      include: { tower: true },
-      take: 20,
-    }),
-    prisma.project.findFirst(),
-  ])
+      }),
+      prisma.unit.findMany({ where: { status: 'AVAILABLE' }, include: { tower: true }, take: 20 }),
+      prisma.project.findFirst(),
+    ])
+  } catch {}
 
   const totalLeads = leadStats.reduce((sum: number, stat: any) => sum + stat._count.status, 0)
   const qualifiedLeads = leadStats.find((s: any) => s.status === 'QUALIFIED')?._count.status || 0

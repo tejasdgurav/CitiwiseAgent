@@ -9,16 +9,21 @@ import { RunPlannerButton } from '@/components/common/RunPlannerButton'
 import { Plus, Target, TrendingUp, AlertTriangle } from 'lucide-react'
 
 export default async function DashboardPage() {
-  // Get the first project for demo (in production, this would be user-specific)
-  const project = await prisma.project.findFirst({
-    include: {
-      cashTargets: {
-        where: { status: 'ACTIVE' },
-        orderBy: { targetDate: 'asc' },
-        take: 1
+  let project: any = null
+  try {
+    // Get the first project for demo (in production, this would be user-specific)
+    project = await prisma.project.findFirst({
+      include: {
+        cashTargets: {
+          where: { status: 'ACTIVE' },
+          orderBy: { targetDate: 'asc' },
+          take: 1
+        }
       }
-    }
-  })
+    })
+  } catch (e) {
+    // swallow and render setup screen
+  }
 
   if (!project) {
     return (
@@ -38,66 +43,75 @@ export default async function DashboardPage() {
   const cashTarget = project.cashTargets[0]
 
   // Calculate current cash flow
-  const receipts = await prisma.receipt.aggregate({
-    where: {
-      lead: {
-        projectId: project.id
+  let receipts: any = { _sum: { amount: 0 } }
+  try {
+    receipts = await prisma.receipt.aggregate({
+      where: {
+        lead: {
+          projectId: project.id
+        }
+      },
+      _sum: {
+        amount: true
       }
-    },
-    _sum: {
-      amount: true
-    }
-  })
+    })
+  } catch {}
 
   const currentCashFlow = receipts._sum.amount || 0
 
   // Get today's tasks
-  const todayTasks = await prisma.task.findMany({
-    where: {
-      createdAt: {
-        gte: new Date(new Date().setHours(0, 0, 0, 0))
+  let todayTasks: any[] = []
+  try {
+    todayTasks = await prisma.task.findMany({
+      where: {
+        createdAt: {
+          gte: new Date(new Date().setHours(0, 0, 0, 0))
+        },
+        status: { in: ['PENDING', 'IN_PROGRESS'] }
       },
-      status: { in: ['PENDING', 'IN_PROGRESS'] }
-    },
-    include: {
-      approvals: {
-        include: {
-          approver: {
-            select: {
-              name: true,
-              email: true
+      include: {
+        approvals: {
+          include: {
+            approver: {
+              select: {
+                name: true,
+                email: true
+              }
             }
           }
         }
-      }
-    },
-    orderBy: [
-      { riskLevel: 'desc' },
-      { createdAt: 'asc' }
-    ],
-    take: 10
-  })
+      },
+      orderBy: [
+        { riskLevel: 'desc' },
+        { createdAt: 'asc' }
+      ],
+      take: 10
+    })
+  } catch {}
 
   // Get pending approvals
-  const pendingApprovals = await prisma.approval.findMany({
-    where: {
-      state: 'PENDING'
-    },
-    include: {
-      task: true,
-      approver: {
-        select: {
-          name: true,
-          email: true
+  let pendingApprovals: any[] = []
+  try {
+    pendingApprovals = await prisma.approval.findMany({
+      where: {
+        state: 'PENDING'
+      },
+      include: {
+        task: true,
+        approver: {
+          select: {
+            name: true,
+            email: true
+          }
         }
-      }
-    },
-    orderBy: [
-      { task: { riskLevel: 'desc' } },
-      { createdAt: 'asc' }
-    ],
-    take: 5
-  })
+      },
+      orderBy: [
+        { task: { riskLevel: 'desc' } },
+        { createdAt: 'asc' }
+      ],
+      take: 5
+    })
+  } catch {}
 
   // Calculate key metrics
   const cashGap = cashTarget ? cashTarget.targetAmount - currentCashFlow : 0
