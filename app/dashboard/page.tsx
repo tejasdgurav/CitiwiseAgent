@@ -6,6 +6,7 @@ import { RiskPanel } from '@/components/dashboard/RiskPanel'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { RunPlannerButton } from '@/components/common/RunPlannerButton'
+import { SetupProjectCard } from '@/components/dashboard/SetupProjectCard'
 import { Plus, Target, TrendingUp, AlertTriangle } from 'lucide-react'
 
 export default async function DashboardPage() {
@@ -24,21 +25,17 @@ export default async function DashboardPage() {
   } catch (e) {
     // swallow and render setup screen
   }
-  // Fallback to stub project in dev/no-DB mode so dashboard keeps working without login/DB
-  let isStub = false
+  // If no project exists, show initial setup UI
   if (!project) {
-    isStub = true
-    project = {
-      id: 'stub-project',
-      name: 'Demo Project',
-      city: 'Mumbai',
-      cashTargets: [
-        {
-          targetAmount: 5_00_00_000, // ₹5 Cr
-          targetDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-        },
-      ],
-    }
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="max-w-3xl mx-auto px-4 py-8">
+          <h1 className="text-2xl font-semibold text-gray-900 mb-2">Welcome to Citiwise</h1>
+          <p className="text-sm text-gray-600 mb-6">Create your organization and first project to get started.</p>
+          <SetupProjectCard />
+        </div>
+      </div>
+    )
   }
 
   const cashTarget = project.cashTargets[0]
@@ -138,9 +135,7 @@ export default async function DashboardPage() {
             <div>
               <h1 className="text-2xl font-semibold text-gray-900">{project.name}</h1>
               <p className="text-sm text-gray-600">{project.city} • Dashboard</p>
-              {isStub && (
-                <p className="text-xs text-orange-600 mt-1">Demo mode: showing stub data (no DB/login required)</p>
-              )}
+              {/* Setup complete; live project data */}
             </div>
             <div className="flex items-center gap-3">
               <Button variant="outline" size="sm">

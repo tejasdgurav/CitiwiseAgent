@@ -59,7 +59,6 @@ export function ApprovalsInbox({ approvals }: ApprovalsInboxProps) {
         },
         body: JSON.stringify({
           taskId,
-          approverId: 'demo-user-id', // In production, get from auth
           decision,
           note,
         }),
