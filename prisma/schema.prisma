@@ -1,0 +1,429 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  OWNER
+  PROJECT_ADMIN
+  SALES_LEAD
+  SALES_AGENT
+  FINANCE
+  LEGAL
+  READ_ONLY
+}
+
+enum LeadSource {
+  WHATSAPP
+  PORTAL
+  WALKIN
+  REFERRAL
+  BROKER
+}
+
+enum LeadStatus {
+  NEW
+  QUALIFIED
+  INTERESTED
+  NEGOTIATING
+  CONVERTED
+  LOST
+}
+
+enum UnitStatus {
+  AVAILABLE
+  HOLD
+  BOOKED
+  REGISTERED
+  CANCELLED
+  BLOCKED
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum ApprovalState {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum TokenStatus {
+  CREATED
+  PAID
+  FAILED
+  EXPIRED
+}
+
+enum LoanStatus {
+  INIT
+  SUBMITTED
+  SANCTIONED
+  REJECTED
+}
+
+enum SlotStatus {
+  TENTATIVE
+  CONFIRMED
+  COMPLETED
+}
+
+enum CashTargetStatus {
+  ACTIVE
+  ACHIEVED
+  MISSED
+}
+
+model Organization {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users    User[]
+  projects Project[]
+
+  @@map("organizations")
+}
+
+model User {
+  id             String   @id @default(uuid())
+  email          String   @unique
+  name           String?
+  role           UserRole
+  organizationId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  approvals    Approval[]
+  auditLogs    AuditLog[]
+
+  @@map("users")
+}
+
+model Project {
+  id             String @id @default(uuid())
+  name           String
+  city           String
+  policies       Json?
+  bankPartners   Json?
+  organizationId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  towers       Tower[]
+  leads        Lead[]
+  cashTargets  CashTarget[]
+
+  @@map("projects")
+}
+
+model Tower {
+  id        String   @id @default(uuid())
+  name      String
+  projectId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  units   Unit[]
+
+  @@map("towers")
+}
+
+model Unit {
+  id         String     @id @default(uuid())
+  towerId    String
+  unitNumber String
+  bhk        Int
+  carpetArea Float
+  usage      String?
+  status     UnitStatus @default(AVAILABLE)
+  plc        Float?
+  floorRise  Float?
+  vastu      String?
+  parking    Int?
+  basePrice  Float
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  tower     Tower       @relation(fields: [towerId], references: [id], onDelete: Cascade)
+  dealPages DealPage[]
+  offers    Offer[]
+
+  @@unique([towerId, unitNumber])
+  @@map("units")
+}
+
+model Contact {
+  id        String   @id @default(uuid())
+  phone     String   @unique
+  name      String?
+  email     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  leads Lead[]
+
+  @@map("contacts")
+}
+
+model Broker {
+  id        String   @id @default(uuid())
+  name      String
+  phone     String   @unique
+  email     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  leads              Lead[]
+  brokerAttributions BrokerAttribution[]
+  brokerPayouts      BrokerPayout[]
+
+  @@map("brokers")
+}
+
+model Lead {
+  id        String     @id @default(uuid())
+  contactId String
+  projectId String
+  brokerId  String?
+  source    LeadSource
+  status    LeadStatus @default(NEW)
+  notes     String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  broker    Broker?  @relation(fields: [brokerId], references: [id])
+  dealPages DealPage[]
+  receipts  Receipt[]
+
+  @@map("leads")
+}
+
+model BrokerAttribution {
+  id         String   @id @default(uuid())
+  brokerId   String
+  leadId     String   @unique
+  payoutRules Json?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  broker Broker @relation(fields: [brokerId], references: [id], onDelete: Cascade)
+
+  @@map("broker_attributions")
+}
+
+model DealPage {
+  id        String   @id @default(uuid())
+  leadId    String
+  linkCode  String   @unique
+  units     Unit[]
+  emiSnapshot Json?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lead   Lead    @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  offers Offer[]
+  tokens Token[]
+
+  @@map("deal_pages")
+}
+
+model Offer {
+  id           String @id @default(uuid())
+  dealPageId   String
+  unitId       String
+  priceBreakup Json
+  taxes        Json
+  total        Float
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  dealPage DealPage @relation(fields: [dealPageId], references: [id], onDelete: Cascade)
+  unit     Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  tokens   Token[]
+
+  @@map("offers")
+}
+
+model Token {
+  id          String      @id @default(uuid())
+  dealPageId  String
+  offerId     String
+  paymentLink String?
+  status      TokenStatus @default(CREATED)
+  amount      Float
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  dealPage DealPage @relation(fields: [dealPageId], references: [id], onDelete: Cascade)
+  offer    Offer    @relation(fields: [offerId], references: [id], onDelete: Cascade)
+
+  @@map("tokens")
+}
+
+model LoanApplication {
+  id        String     @id @default(uuid())
+  leadId    String
+  status    LoanStatus @default(INIT)
+  packUrl   String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@map("loan_applications")
+}
+
+model AgreementSlot {
+  id        String     @id @default(uuid())
+  leadId    String
+  datetime  DateTime
+  status    SlotStatus @default(TENTATIVE)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@map("agreement_slots")
+}
+
+model DemandLetter {
+  id        String   @id @default(uuid())
+  leadId    String
+  amount    Float
+  dueDate   DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("demand_letters")
+}
+
+model Receipt {
+  id            String   @id @default(uuid())
+  leadId        String
+  amount        Float
+  paymentMethod String?
+  referenceId   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Add relation to Lead to enable nested filters like where: { lead: { projectId: ... } }
+  lead          Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@map("receipts")
+}
+
+model BrokerPayout {
+  id        String @id @default(uuid())
+  brokerId  String
+  leadId    String
+  milestone String // token/agreement/possession
+  amount    Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  broker Broker @relation(fields: [brokerId], references: [id], onDelete: Cascade)
+
+  @@map("broker_payouts")
+}
+
+model CashTarget {
+  id           String           @id @default(uuid())
+  projectId    String
+  targetAmount Float
+  targetDate   DateTime
+  status       CashTargetStatus @default(ACTIVE)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("cash_targets")
+}
+
+model Task {
+  id               String     @id @default(uuid())
+  agentType        String
+  actionType       String
+  payload          Json
+  status           TaskStatus @default(PENDING)
+  riskLevel        RiskLevel  @default(LOW)
+  cashImpactDelta  Float?
+  reasonShort      String?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  approvals Approval[]
+
+  @@map("tasks")
+}
+
+model Approval {
+  id        String        @id @default(uuid())
+  taskId    String
+  state     ApprovalState @default(PENDING)
+  approverId String
+  note      String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  task     Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  approver User @relation(fields: [approverId], references: [id], onDelete: Cascade)
+
+  @@map("approvals")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String
+  action    String
+  entityType String?
+  entityId  String?
+  payload   Json?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("audit_logs")
+}
+
+model Event {
+  id        String   @id @default(uuid())
+  name      String
+  payload   Json?
+  createdAt DateTime @default(now())
+
+  @@map("events")
+}
+
+model Job {
+  id        String   @id @default(uuid())
+  type      String
+  payload   Json?
+  status    String   @default("pending")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("jobs")
+}
