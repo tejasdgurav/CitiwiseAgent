@@ -53,8 +53,21 @@ export function TodayQueue({ tasks }: TodayQueueProps) {
   }
 
   const handleExecuteTask = async (taskId: string) => {
-    // In a real implementation, this would call the task execution API
-    console.log('Executing task:', taskId)
+    try {
+      const res = await fetch('/api/agent/execute-task', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Failed to execute task')
+      }
+      // Refresh to reflect updated task status
+      if (typeof window !== 'undefined') window.location.reload()
+    } catch (e: any) {
+      alert(e?.message || 'Failed to execute task')
+    }
   }
 
   return (

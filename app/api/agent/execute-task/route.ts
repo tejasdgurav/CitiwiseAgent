@@ -34,10 +34,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Only LOW risk tasks can be executed here' }, { status: 400 })
     }
 
+    // Helper to narrow JSON payload to a plain object
+    const asObject = (v: unknown): Record<string, any> => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, any>) : {})
+
     // Execute supported actions
     switch (task.actionType) {
       case 'sendWhatsAppTemplate': {
-        const { leadId, templateName, params } = task.payload || {}
+        const payload = asObject(task.payload)
+        const { leadId, templateName, params } = payload
         if (!leadId || !templateName) {
           return NextResponse.json({ error: 'Invalid payload for sendWhatsAppTemplate' }, { status: 400 })
         }
@@ -64,7 +68,8 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: true, messageId: res.messageId })
       }
       case 'followUpDealPage': {
-        const { leadId, linkCode } = task.payload || {}
+        const payload = asObject(task.payload)
+        const { leadId, linkCode } = payload
         if (!leadId || !linkCode) {
           return NextResponse.json({ error: 'Invalid payload for followUpDealPage' }, { status: 400 })
         }
