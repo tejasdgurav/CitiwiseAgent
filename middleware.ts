@@ -7,12 +7,28 @@ export async function middleware(req: NextRequest) {
   if (openAccess) return NextResponse.next()
 
   const { pathname } = req.nextUrl
+  // Extra guards to avoid any chance of loops
+  if (
+    pathname.startsWith('/api') ||
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/favicon') ||
+    pathname === '/login'
+  ) {
+    return NextResponse.next()
+  }
+
   const protectedPaths = ['/dashboard', '/agent']
   const isProtected = protectedPaths.some((p) => pathname.startsWith(p))
 
   if (!isProtected) return NextResponse.next()
 
-  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET })
+  let token: any = null
+  try {
+    token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET })
+  } catch {
+    // If token parsing fails for any reason, do not redirect to avoid loops
+    return NextResponse.next()
+  }
   if (!token) {
     const url = req.nextUrl.clone()
     url.pathname = '/login'
