@@ -2,9 +2,21 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { TaskPlanner, PlannerContext } from '@/lib/tasks/planner'
 import { logger } from '@/lib/logging'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions as any)
+    const role = (session as any)?.role || (session as any)?.user?.role
+    if (!session || !role) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    const allowed: string[] = ['OWNER', 'PROJECT_ADMIN', 'SALES_LEAD']
+    if (!allowed.includes(role)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     const { projectId } = await request.json()
 
     if (!projectId) {

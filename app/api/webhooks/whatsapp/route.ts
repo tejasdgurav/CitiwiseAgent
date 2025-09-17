@@ -2,9 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { logger } from '@/lib/logging'
 import { prisma } from '@/lib/db'
 import { WhatsAppWebhookPayload } from '@/lib/adapters/whatsapp/stub'
+import { rateLimit } from '@/lib/rateLimit'
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const key = `rl:whatsapp:${ip}`
+    const { allowed } = rateLimit({ key, windowMs: 10_000, max: 30 })
+    if (!allowed) {
+      return NextResponse.json({ error: 'Too Many Requests' }, { status: 429 })
+    }
+
     const payload: WhatsAppWebhookPayload = await request.json()
     
     logger.info('WhatsApp webhook received', { payload })

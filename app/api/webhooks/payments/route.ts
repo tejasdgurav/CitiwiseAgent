@@ -2,9 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { logger } from '@/lib/logging'
 import { PaymentWebhookPayload } from '@/lib/adapters/payments/stub'
+import { rateLimit } from '@/lib/rateLimit'
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const key = `rl:payments:${ip}`
+    const { allowed, remaining, resetAt } = rateLimit({ key, windowMs: 10_000, max: 20 })
+    if (!allowed) {
+      return NextResponse.json({ error: 'Too Many Requests' }, { status: 429 })
+    }
+
     const payload: PaymentWebhookPayload = await request.json()
     
     logger.info('Payment webhook received', { payload })
