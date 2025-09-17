@@ -1,23 +1,5 @@
 import { logger } from '@/lib/logging'
-
-export interface PaymentRequest {
-  amount: number
-  currency: string
-  orderId: string
-  customerName: string
-  customerEmail?: string
-  customerPhone: string
-  description: string
-  callbackUrl: string
-  cancelUrl: string
-}
-
-export interface PaymentResponse {
-  paymentId: string
-  paymentUrl: string
-  status: string
-  orderId: string
-}
+import type { PaymentAdapter, PaymentRequest, PaymentResponse, PaymentWebhookNormalized } from './types'
 
 export interface PaymentWebhookPayload {
   paymentId: string
@@ -30,7 +12,7 @@ export interface PaymentWebhookPayload {
   timestamp: string
 }
 
-export class PaymentStubAdapter {
+export class PaymentStubAdapter implements PaymentAdapter {
   private baseUrl: string
 
   constructor(baseUrl: string = 'http://localhost:3000') {
@@ -63,19 +45,20 @@ export class PaymentStubAdapter {
     }
   }
 
-  async getPaymentStatus(paymentId: string): Promise<{ status: string; transactionId?: string }> {
-    logger.info('Payment Stub: Getting payment status', { paymentId })
-    
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 100))
-    
-    // In stub mode, randomly return success/pending for demo
-    const statuses = ['success', 'pending', 'failed']
-    const randomStatus = statuses[Math.floor(Math.random() * statuses.length)]
-    
-    return {
-      status: randomStatus,
-      transactionId: randomStatus === 'success' ? `txn_${Date.now()}` : undefined,
+  async normalizeWebhook(request: Request): Promise<PaymentWebhookNormalized | null> {
+    try {
+      const payload = (await request.json()) as PaymentWebhookPayload
+      return {
+        paymentId: payload.paymentId,
+        orderId: payload.orderId,
+        status: payload.status,
+        amount: payload.amount,
+        currency: payload.currency,
+        transactionId: payload.transactionId,
+      }
+    } catch (e) {
+      logger.error('Payment Stub: Failed to normalize webhook', { error: e })
+      return null
     }
   }
 

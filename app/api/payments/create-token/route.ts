@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { PaymentStubAdapter } from '@/lib/adapters/payments/stub'
+import { getPaymentAdapter } from '@/lib/adapters/payments'
 import { logger } from '@/lib/logging'
 
 export async function POST(request: NextRequest) {
@@ -88,8 +88,8 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // Create payment link using stub adapter
-    const paymentAdapter = new PaymentStubAdapter()
+    // Create payment link using selected provider adapter
+    const paymentAdapter = getPaymentAdapter()
     const paymentResponse = await paymentAdapter.createPaymentLink({
       amount,
       currency: 'INR',

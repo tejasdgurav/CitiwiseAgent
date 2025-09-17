@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { logger } from '@/lib/logging'
-import { PaymentWebhookPayload } from '@/lib/adapters/payments/stub'
 import { rateLimit } from '@/lib/rateLimit'
+import { getPaymentAdapter } from '@/lib/adapters/payments'
+import type { PaymentWebhookNormalized } from '@/lib/adapters/payments/types'
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,12 +14,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Too Many Requests' }, { status: 429 })
     }
 
-    const payload: PaymentWebhookPayload = await request.json()
-    
-    logger.info('Payment webhook received', { payload })
+    // Normalize provider webhook
+    const adapter = getPaymentAdapter()
+    const normalized = await adapter.normalizeWebhook(request)
+    if (!normalized) {
+      return NextResponse.json({ error: 'Invalid webhook payload' }, { status: 400 })
+    }
+    logger.info('Payment webhook received (normalized)', { normalized })
 
     // Process payment webhook
-    await processPaymentWebhook(payload)
+    await processPaymentWebhook(normalized)
 
     return NextResponse.json({ status: 'success' })
   } catch (error) {
@@ -30,7 +35,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function processPaymentWebhook(payload: PaymentWebhookPayload) {
+async function processPaymentWebhook(payload: PaymentWebhookNormalized) {
   const { paymentId, orderId, status, amount, transactionId } = payload
 
   // Find the token by order ID pattern
