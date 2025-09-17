@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { logger } from '@/lib/logging'
 import { z } from 'zod'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 
 const createDealPageSchema = z.object({
   leadId: z.string(),
@@ -13,6 +15,17 @@ export async function POST(request: NextRequest) {
   const correlationId = crypto.randomUUID()
 
   try {
+    // RBAC: require authenticated user with allowed role
+    const session = await getServerSession(authOptions as any)
+    const role = (session as any)?.role || (session as any)?.user?.role
+    if (!session || !role) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    const allowed: string[] = ['OWNER', 'PROJECT_ADMIN', 'SALES_LEAD', 'SALES_AGENT']
+    if (!allowed.includes(role)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     const body = await request.json()
     const { leadId, unitIds, expiryDays } = createDealPageSchema.parse(body)
 
